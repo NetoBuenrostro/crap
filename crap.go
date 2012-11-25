@@ -101,11 +101,15 @@ func main() {
 
 	// Validate config
 	if len(env.Servers) == 0 {
-		fmt.Printf("No server(s) to environment configuration\n")
+		fmt.Println("No server(s) to environment configuration")
 		os.Exit(1)
 	}
 	if len(conf.AssetBuildCommands) == 0 && len(conf.AppBuildCommands) == 0 {
-		fmt.Printf("No asset_build_commands or app_build_commands found in environment configuration\n")
+		fmt.Println("No asset_build_commands or app_build_commands found in environment configuration")
+		os.Exit(1)
+	}
+	if len(conf.DeployDir) == 0 {
+		fmt.Println("deploy_dir must be filled in!")
 		os.Exit(1)
 	}
 
