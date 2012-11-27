@@ -23,10 +23,10 @@ type (
 		Name           string   `json:"name"`
 		Servers        []Server `json:"servers"`
 		RestartCommand string   `json:"restart_command"`
+		DeployDir      string   `json:"deploydir"`
 	}
 	Configuration struct {
 		Environments       []Environment `json:"environments"`
-		DeployDir          string        `json:"deploydir"`
 		BuiltAppDir        string        `json:"built_app_dir"`
 		AppBuildCommands   []string      `json:"app_build_commands"`
 		AssetBuildCommands []string      `json:"asset_build107_commands"`
@@ -37,7 +37,7 @@ type (
 
 const (
 	ConfigurationFile = "crap.json"
-	Version           = "0.3"
+	Version           = "0.4"
 )
 
 var (
@@ -108,7 +108,8 @@ func main() {
 		fmt.Println("No asset_build_commands or app_build_commands found in environment configuration")
 		os.Exit(1)
 	}
-	if len(conf.DeployDir) == 0 {
+
+	if len(env.DeployDir) == 0 {
 		fmt.Println("deploy_dir must be filled in!")
 		os.Exit(1)
 	}
@@ -169,7 +170,7 @@ func main() {
 	}
 
 	// Construct release dir
-	releaseBasePath := filepath.Join(conf.DeployDir, "releases")
+	releaseBasePath := filepath.Join(env.DeployDir, "releases")
 	releaseDir := filepath.Join(releaseBasePath, time.Now().Format("20060102150405"))
 
 	// Prepare servers
@@ -184,12 +185,12 @@ func main() {
 		// Run a bunch of commands on the remote server. Set up shared dir, symlinks etc
 		var buffer bytes.Buffer
 
-		cmd := fmt.Sprintf("if [ ! -d %s/shared/log ]; then mkdir -p %s/shared/log; fi", conf.DeployDir, conf.DeployDir)
+		cmd := fmt.Sprintf("if [ ! -d %s/shared/log ]; then mkdir -p %s/shared/log; fi", env.DeployDir, env.DeployDir)
 		buffer.WriteString(cmd)
 
 		if conf.BuiltAppDir == "" {
 			cmd := fmt.Sprintf("&& if [ -d %s/shared/cached-copy ]; then cd %s/shared/cached-copy && git fetch -q origin && git fetch --tags -q origin && git reset -q --hard %s && git clean -q -d -x -f; else git clone -q --depth 1 %s %s/shared/cached-copy && cd %s/shared/cached-copy && git checkout -q -b deploy %s; fi",
-				conf.DeployDir, conf.DeployDir, sha1, repoAddress, conf.DeployDir, conf.DeployDir, sha1)
+				env.DeployDir, env.DeployDir, sha1, repoAddress, env.DeployDir, env.DeployDir, sha1)
 			buffer.WriteString(cmd)
 		}
 
@@ -198,7 +199,7 @@ func main() {
 
 		if conf.BuiltAppDir == "" {
 			cmd = fmt.Sprintf(" && cp -RPp %s/shared/cached-copy %s && (echo %s > %s/REVISION)",
-				conf.DeployDir, releaseDir, sha1, releaseDir)
+				env.DeployDir, releaseDir, sha1, releaseDir)
 			buffer.WriteString(cmd)
 		}
 
@@ -208,24 +209,24 @@ func main() {
 		cmd = fmt.Sprintf(" && (rm -rf %s/public/system || true) && mkdir -p %s/public/", releaseDir, releaseDir)
 		buffer.WriteString(cmd)
 
-		cmd = fmt.Sprintf(" && ln -s %s/shared/system %s/public/system", conf.DeployDir, releaseDir)
+		cmd = fmt.Sprintf(" && ln -s %s/shared/system %s/public/system", env.DeployDir, releaseDir)
 		buffer.WriteString(cmd)
 
 		cmd = fmt.Sprintf(" && rm -rf %s/log", releaseDir)
 		buffer.WriteString(cmd)
 
-		cmd = fmt.Sprintf(" && ln -s %s/shared/log %s/log", conf.DeployDir, releaseDir)
+		cmd = fmt.Sprintf(" && ln -s %s/shared/log %s/log", env.DeployDir, releaseDir)
 		buffer.WriteString(cmd)
 
 		cmd = fmt.Sprintf(" && rm -rf %s/tmp/pids && mkdir -p %s/tmp/", releaseDir, releaseDir)
 		buffer.WriteString(cmd)
 
-		cmd = fmt.Sprintf(" && ln -s %s/shared/pids %s/tmp/pids", conf.DeployDir, releaseDir)
+		cmd = fmt.Sprintf(" && ln -s %s/shared/pids %s/tmp/pids", env.DeployDir, releaseDir)
 		buffer.WriteString(cmd)
 
 		if len(conf.AssetBuildCommands) > 0 {
 			cmd = fmt.Sprintf(" && rm -rf %s/public/assets && mkdir -p %s/public && mkdir -p %s/shared/assets && ln -s %s/shared/assets %s/public/assets",
-				releaseDir, releaseDir, conf.DeployDir, conf.DeployDir, releaseDir)
+				releaseDir, releaseDir, env.DeployDir, env.DeployDir, releaseDir)
 			buffer.WriteString(cmd)
 		}
 
@@ -254,7 +255,7 @@ func main() {
 		rsyncAssets := func(server Server) {
 			if len(conf.AssetBuildCommands) > 0 {
 				cmd := fmt.Sprintf("rsync -e 'ssh -p %s -o ControlPath=\"%s\"' --recursive --times --compress --human-readable public/assets %s:%s/shared",
-					server.Port, server.ControlPath(), server.Host(), conf.DeployDir)
+					server.Port, server.ControlPath(), server.Host(), env.DeployDir)
 				runCmd(exec.Command("/bin/sh", "-c", cmd))
 			}
 			assetsRsynced <- true
@@ -287,7 +288,7 @@ func main() {
 	// If remote commands are finished and assets are synced, replace symlink and restart server
 	var finalize bytes.Buffer
 
-	cmd := fmt.Sprintf("rm -f %s/current && ln -s %s %s/current", conf.DeployDir, releaseDir, conf.DeployDir)
+	cmd := fmt.Sprintf("rm -f %s/current && ln -s %s %s/current", env.DeployDir, releaseDir, env.DeployDir)
 	finalize.WriteString(cmd)
 
 	if len(env.RestartCommand) > 0 {
@@ -335,16 +336,17 @@ func NewSampleConfiguration() *Configuration {
 				Servers: []Server{
 					Server{Port: "22", User: "deployment", Ip: "127.0.0.1"},
 					Server{Port: "22", User: "deployment", Ip: "localhost"}},
-				RestartCommand: "(sudo stop myapp_staging || true) && sudo start myapp_staging"},
+				RestartCommand: "(sudo stop myapp_staging || true) && sudo start myapp_staging",
+				DeployDir:      "/var/www/myapp"},
 			Environment{
 				Name: "production",
 				Servers: []Server{
 					Server{Port: "22", User: "deployment", Ip: "www.myapp.com"}},
+				DeployDir:      "/var/www/myapp",
 				RestartCommand: "(sudo stop myapp_productioin || true) && sudo start myapp_production"}},
 		AppBuildCommands:   []string{"make linux64bit"},
 		AssetBuildCommands: []string{"make css_assets_gzip", "make js_assets_gzip"},
 		BuiltAppDir:        "out/myapp",
-		DeployDir:          "/var/www/myapp",
 	}
 }
 
