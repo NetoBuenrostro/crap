@@ -110,7 +110,7 @@ func main() {
 	}
 
 	if len(env.DeployDir) == 0 {
-		fmt.Println("deploy_dir must be filled in!")
+		fmt.Println("deploydir must be filled in!")
 		os.Exit(1)
 	}
 
