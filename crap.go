@@ -286,8 +286,10 @@ func main() {
 	cmd := fmt.Sprintf("rm -f %s/current && ln -s %s %s/current", conf.DeployDir, releaseDir, conf.DeployDir)
 	finalize.WriteString(cmd)
 
-	cmd = fmt.Sprintf(" && %s", env.RestartCommand)
-	finalize.WriteString(cmd)
+	if len(env.RestartCommand) > 0 {
+		cmd = fmt.Sprintf(" && %s", env.RestartCommand)
+		finalize.WriteString(cmd)
+	}
 
 	serverFinalized := make(chan bool, len(env.Servers))
 	finalizeServer := func(server Server) {
