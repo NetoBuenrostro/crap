@@ -223,9 +223,11 @@ func main() {
 		cmd = fmt.Sprintf(" && ln -s %s/shared/pids %s/tmp/pids", conf.DeployDir, releaseDir)
 		buffer.WriteString(cmd)
 
-		cmd = fmt.Sprintf(" && rm -rf %s/public/assets && mkdir -p %s/public && mkdir -p %s/shared/assets && ln -s %s/shared/assets %s/public/assets",
-			releaseDir, releaseDir, conf.DeployDir, conf.DeployDir, releaseDir)
-		buffer.WriteString(cmd)
+		if len(conf.AssetBuildCommands) > 0 {
+			cmd = fmt.Sprintf(" && rm -rf %s/public/assets && mkdir -p %s/public && mkdir -p %s/shared/assets && ln -s %s/shared/assets %s/public/assets",
+				releaseDir, releaseDir, conf.DeployDir, conf.DeployDir, releaseDir)
+			buffer.WriteString(cmd)
+		}
 
 		prepareServer := func(server Server) {
 			runCmd(exec.Command("ssh", "-p", server.Port, "-o", fmt.Sprintf("ControlPath='%s'", server.ControlPath()), "-l", server.User, server.Ip, buffer.String()))
@@ -250,9 +252,11 @@ func main() {
 			<-assetBuildReady
 		}
 		rsyncAssets := func(server Server) {
-			cmd := fmt.Sprintf("rsync -e 'ssh -p %s -o ControlPath=\"%s\"' --recursive --times --compress --human-readable public/assets %s:%s/shared",
-				server.Port, server.ControlPath(), server.Host(), conf.DeployDir)
-			runCmd(exec.Command("/bin/sh", "-c", cmd))
+			if len(conf.AssetBuildCommands) > 0 {
+				cmd := fmt.Sprintf("rsync -e 'ssh -p %s -o ControlPath=\"%s\"' --recursive --times --compress --human-readable public/assets %s:%s/shared",
+					server.Port, server.ControlPath(), server.Host(), conf.DeployDir)
+				runCmd(exec.Command("/bin/sh", "-c", cmd))
+			}
 			assetsRsynced <- true
 		}
 		for _, server := range env.Servers {
