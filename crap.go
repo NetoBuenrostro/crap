@@ -29,7 +29,7 @@ type (
 		Environments       []Environment `json:"environments"`
 		BuiltAppDir        string        `json:"built_app_dir"`
 		AppBuildCommands   []string      `json:"app_build_commands"`
-		AssetBuildCommands []string      `json:"asset_build107_commands"`
+		AssetBuildCommands []string      `json:"asset_build_commands"`
 	}
 )
 
