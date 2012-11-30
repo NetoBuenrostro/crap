@@ -26,6 +26,7 @@ type (
 		DeployDir      string   `json:"deploydir"`
 	}
 	Configuration struct {
+		CrapVersion        string        `json:"crap_version"`
 		Environments       []Environment `json:"environments"`
 		BuiltAppDir        string        `json:"built_app_dir"`
 		AppBuildCommands   []string      `json:"app_build_commands"`
@@ -108,9 +109,16 @@ func main() {
 		fmt.Println("No asset_build_commands or app_build_commands found in environment configuration")
 		os.Exit(1)
 	}
-
 	if len(env.DeployDir) == 0 {
 		fmt.Println("deploydir must be filled in!")
+		os.Exit(1)
+	}
+	if len(conf.CrapVersion) == 0 {
+		fmt.Println("Your crap.json file is unversioned - please add crap_version to your crap.json")
+		os.Exit(1)
+	}
+	if conf.CrapVersion != Version {
+		fmt.Println("Your crap.json requires crap", conf.CrapVersion, "but this crap is", Version, "- please upgrade!")
 		os.Exit(1)
 	}
 
@@ -330,6 +338,7 @@ func runCmd(cmd *exec.Cmd) []byte {
 
 func NewSampleConfiguration() *Configuration {
 	return &Configuration{
+		CrapVersion: Version,
 		Environments: []Environment{
 			Environment{
 				Name: "staging",
