@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	crapify = flag.Bool("crapify", false, "create an new configuration file")
+	crapify = flag.Bool("crapify", false, "create a new configuration file")
 	version = flag.Bool("version", false, "print version and exit")
 )
 
@@ -102,7 +102,7 @@ func main() {
 
 	// Validate config
 	if len(env.Servers) == 0 {
-		fmt.Println("No server(s) to environment configuration")
+		fmt.Println("No server(s) in environment configuration")
 		os.Exit(1)
 	}
 	if len(conf.AssetBuildCommands) == 0 && len(conf.AppBuildCommands) == 0 {
