@@ -99,18 +99,20 @@ func main() {
 	// Kick of SSH ControlMaster in the background
 	controlMasterStarted := make(chan *Server, len(env.Servers))
 	startControlMaster := func(server *Server) {
-		cmd := fmt.Sprintf("ssh -nNf -o ControlMaster=yes -o ControlPath='%s' -p %s %s", server.ControlPath(), server.Port, server.Host())
-		runCmd(exec.Command("sh", "-c", cmd))
+		cmd := fmt.Sprintf("ssh -nNf -o \"ControlMaster=yes\" -o \"ControlPath=%s\" -p %s %s", server.ControlPath(), server.Port, server.Host())
+		runCmdReturningNothing(exec.Command("sh", "-c", cmd))
 		controlMasterStarted <- server
 	}
 	for _, server := range env.Servers {
 		go startControlMaster(&server)
 	}
+
+	// FIXME: at this point, we don't really know if control master was set up or not
 	defer func() {
 		controlMasterStopped := make(chan *Server, len(env.Servers))
 		stopControlMaster := func(server *Server) {
 			cmd := fmt.Sprintf("ssh -O exit -o ControlPath='%s' -p %s %s", server.ControlPath(), server.Port, server.Host())
-			runCmd(exec.Command("sh", "-c", cmd))
+			runCmdReturningNothing(exec.Command("sh", "-c", cmd))
 			controlMasterStopped <- server
 		}
 		for _, server := range env.Servers {
@@ -123,7 +125,7 @@ func main() {
 
 	// Start building in the background
 	buildOne := func(buildCommand string, ready chan bool) {
-		runCmd(exec.Command("sh", "-c", buildCommand))
+		runCmdReturningNothing(exec.Command("sh", "-c", buildCommand))
 		ready <- true
 	}
 	buildAll := func(buildCommands []string) chan bool {
@@ -140,9 +142,9 @@ func main() {
 	repoAddress := ""
 	deployBranch := ""
 	if conf.BuiltAppDir == "" {
-		b = runCmd(exec.Command("git", "config", "--get", "remote.origin.url"))
+		b = runCmdReturningOutput(exec.Command("git", "config", "--get", "remote.origin.url"))
 		repoAddress = strings.Split(string(b), "\n")[0]
-		b = runCmd(exec.Command("git", "branch"))
+		b = runCmdReturningOutput(exec.Command("git", "branch"))
 		for _, branch := range strings.Split(string(b), "\n") {
 			s := strings.TrimSpace(branch)
 			if strings.HasPrefix(s, "* ") {
@@ -160,7 +162,7 @@ func main() {
 	go func() {
 		sha1 := ""
 		if conf.BuiltAppDir == "" {
-			b = runCmd(exec.Command("git", "ls-remote", repoAddress, deployBranch))
+			b = runCmdReturningOutput(exec.Command("git", "ls-remote", repoAddress, deployBranch))
 			sha1 = strings.Split(string(b), "\t")[0]
 		}
 
@@ -212,8 +214,13 @@ func main() {
 			buffer.WriteString(cmd)
 		}
 
+		// FIXME: servers should not block each other
+		for _ = range env.Servers {
+			<-controlMasterStarted
+		}
+
 		prepareServer := func(server *Server) {
-			runCmd(exec.Command("ssh", "-p", server.Port, "-o", fmt.Sprintf("ControlPath='%s'", server.ControlPath()), "-l", server.User, server.Ip, buffer.String()))
+			runCmdReturningNothing(exec.Command("ssh", "-p", server.Port, "-o", fmt.Sprintf("ControlPath='%s'", server.ControlPath()), "-l", server.User, server.Ip, buffer.String()))
 			serverPrepared <- server
 		}
 		for _, server := range env.Servers {
@@ -238,7 +245,7 @@ func main() {
 			if len(conf.AssetBuildCommands) > 0 {
 				cmd := fmt.Sprintf("rsync -e 'ssh -p %s -o ControlPath=\"%s\"' --recursive --times --compress --human-readable public/assets %s:%s/shared",
 					server.Port, server.ControlPath(), server.Host(), env.DeployDir)
-				runCmd(exec.Command("/bin/sh", "-c", cmd))
+				runCmdReturningNothing(exec.Command("/bin/sh", "-c", cmd))
 			}
 			assetsRsynced <- server
 		}
@@ -255,13 +262,13 @@ func main() {
 		}
 		if conf.BuiltAppDir != "" {
 			cmd := fmt.Sprintf("pbzip2 -9 -f %s", filepath.Join(conf.BuiltAppDir, "*"))
-			runCmd(exec.Command("/bin/sh", "-c", cmd))
+			runCmdReturningNothing(exec.Command("/bin/sh", "-c", cmd))
 		}
 		uploadCompressedApp := func(server *Server) {
 			if conf.BuiltAppDir != "" {
 				packedFiles := filepath.Join(conf.BuiltAppDir, "*.bz2")
 				cmd := fmt.Sprintf("scp -o ControlPath=\"%s\" %s %s:%s", server.ControlPath(), packedFiles, server.Host(), releaseDir)
-				runCmd(exec.Command("/bin/sh", "-c", cmd))
+				runCmdReturningNothing(exec.Command("/bin/sh", "-c", cmd))
 			}
 			appUploaded <- server
 		}
@@ -291,7 +298,7 @@ func main() {
 	finalizeServer := func(server *Server) {
 		<-appUploaded
 		<-assetsRsynced
-		runCmd(exec.Command("ssh", "-p", server.Port, "-o", fmt.Sprintf("ControlPath='%s'", server.ControlPath()), "-l", server.User, server.Ip, finalize.String()))
+		runCmdReturningNothing(exec.Command("ssh", "-p", server.Port, "-o", fmt.Sprintf("ControlPath='%s'", server.ControlPath()), "-l", server.User, server.Ip, finalize.String()))
 		serverFinalized <- server
 	}
 	for _, server := range env.Servers {
@@ -302,13 +309,11 @@ func main() {
 	}
 }
 
-func runCmd(cmd *exec.Cmd) []byte {
+func runCmdReturningOutput(cmd *exec.Cmd) []byte {
 	cmdStart := time.Now()
 	args := strings.Join(cmd.Args, " ")
 	b, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Println()
-		fmt.Println()
 		fmt.Println("Error:", err)
 		fmt.Println("Command:", args)
 		fmt.Println("Output:", string(b))
@@ -316,4 +321,15 @@ func runCmd(cmd *exec.Cmd) []byte {
 	}
 	fmt.Println(args, "in", time.Since(cmdStart))
 	return b
+}
+
+func runCmdReturningNothing(cmd *exec.Cmd) {
+	cmdStart := time.Now()
+	args := strings.Join(cmd.Args, " ")
+	if err := cmd.Run(); err != nil {
+		fmt.Println("Error:", err)
+		fmt.Println("Command:", args)
+		os.Exit(1)
+	}
+	fmt.Println(args, "in", time.Since(cmdStart))
 }
