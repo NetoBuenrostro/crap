@@ -13,29 +13,6 @@ import (
 	"time"
 )
 
-type (
-	Server struct {
-		Port string `json:"port"`
-		User string `json:"user"`
-		Ip   string `json:"ip"`
-	}
-	Environment struct {
-		Name           string   `json:"name"`
-		Servers        []Server `json:"servers"`
-		RestartCommand string   `json:"restart_command"`
-		DeployDir      string   `json:"deploydir"`
-	}
-	Configuration struct {
-		CrapVersion        string        `json:"crap_version"`
-		Environments       []Environment `json:"environments"`
-		BuiltAppDir        string        `json:"built_app_dir"`
-		AppBuildCommands   []string      `json:"app_build_commands"`
-		AssetBuildCommands []string      `json:"asset_build_commands"`
-	}
-)
-
-// FIXME: add test cases
-
 const (
 	ConfigurationFile = "crap.json"
 	Version           = "0.5"
@@ -273,40 +250,50 @@ func main() {
 		}
 	}()
 
-	// Rsync app in the background
-	appRsynced := make(chan bool, len(env.Servers))
+	// Upload app in the background
+	appUploaded := make(chan *Server, len(env.Servers))
 	go func() {
-		// Block until app is built
 		for _ = range conf.AppBuildCommands {
 			<-appBuildReady
 		}
-		rsyncApp := func(server Server) {
+		if conf.BuiltAppDir != "" {
+			cmd := fmt.Sprintf("pbzip2 -f %s", filepath.Join(conf.BuiltAppDir, "*"))
+			runCmd(exec.Command("/bin/sh", "-c", cmd))
+		}
+		uploadCompressedApp := func(server *Server) {
 			if conf.BuiltAppDir != "" {
-				cmd := fmt.Sprintf("rsync -e 'ssh -p %s -o ControlPath=\"%s\"' --recursive --times --compress --human-readable %s %s:%s",
-					server.Port, server.ControlPath(), conf.BuiltAppDir, server.Host(), releaseDir)
+				packedFiles := filepath.Join(conf.BuiltAppDir, "*.bz2")
+				cmd := fmt.Sprintf("rsync -e 'ssh -p %s -o ControlPath=\"%s\"' --recursive --times --human-readable %s %s:%s",
+					server.Port, server.ControlPath(), packedFiles, server.Host(), releaseDir)
 				runCmd(exec.Command("/bin/sh", "-c", cmd))
 			}
-			appRsynced <- true
+			appUploaded <- server
 		}
 		for _, server := range env.Servers {
-			go rsyncApp(server)
+			go uploadCompressedApp(&server)
 		}
 	}()
 
 	// If remote commands are finished and assets are synced, replace symlink and restart server
 	var finalize bytes.Buffer
 
-	cmd := fmt.Sprintf("rm -f %s/current && ln -s %s %s/current", env.DeployDir, releaseDir, env.DeployDir)
-	finalize.WriteString(cmd)
+	symlink := filepath.Join(env.DeployDir, "current")
+	finalize.WriteString(fmt.Sprintf("rm -f %s", symlink))
+	finalize.WriteString(fmt.Sprintf(" && ln -s %s %s", releaseDir, symlink))
+
+	if conf.BuiltAppDir != "" {
+		cmd := fmt.Sprintf(" && pbzip2 -d %s", filepath.Join(releaseDir, "*.bz2"))
+		finalize.WriteString(cmd)
+	}
 
 	if len(env.RestartCommand) > 0 {
-		cmd = fmt.Sprintf(" && %s", env.RestartCommand)
+		cmd := fmt.Sprintf(" && %s", env.RestartCommand)
 		finalize.WriteString(cmd)
 	}
 
 	serverFinalized := make(chan bool, len(env.Servers))
 	finalizeServer := func(server Server) {
-		<-appRsynced
+		<-appUploaded
 		<-assetsRsynced
 		runCmd(exec.Command("ssh", "-p", server.Port, "-o", fmt.Sprintf("ControlPath='%s'", server.ControlPath()), "-l", server.User, server.Ip, finalize.String()))
 		fmt.Printf("** App deployed to %s:%s (%v)\n", server.Host(), releaseDir, time.Since(start))
@@ -334,35 +321,4 @@ func runCmd(cmd *exec.Cmd) []byte {
 	}
 	fmt.Printf("%s (%v)\n", args, time.Since(cmdStart))
 	return b
-}
-
-func NewSampleConfiguration() *Configuration {
-	return &Configuration{
-		CrapVersion: Version,
-		Environments: []Environment{
-			Environment{
-				Name: "staging",
-				Servers: []Server{
-					Server{Port: "22", User: "deployment", Ip: "127.0.0.1"},
-					Server{Port: "22", User: "deployment", Ip: "localhost"}},
-				RestartCommand: "(sudo stop myapp_staging || true) && sudo start myapp_staging",
-				DeployDir:      "/var/www/myapp"},
-			Environment{
-				Name: "production",
-				Servers: []Server{
-					Server{Port: "22", User: "deployment", Ip: "www.myapp.com"}},
-				DeployDir:      "/var/www/myapp",
-				RestartCommand: "(sudo stop myapp_productioin || true) && sudo start myapp_production"}},
-		AppBuildCommands:   []string{"make linux64bit"},
-		AssetBuildCommands: []string{"make css_assets_gzip", "make js_assets_gzip"},
-		BuiltAppDir:        "out/myapp",
-	}
-}
-
-func (server *Server) Host() string {
-	return fmt.Sprintf("%s@%s", server.User, server.Ip)
-}
-
-func (server *Server) ControlPath() string {
-	return fmt.Sprintf("%s:%s", server.Host(), server.Port)
 }
