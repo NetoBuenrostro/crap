@@ -99,7 +99,7 @@ func main() {
 	// Kick of SSH ControlMaster in the background
 	controlMasterStarted := make(chan *Server, len(env.Servers))
 	startControlMaster := func(server *Server) {
-		cmd := fmt.Sprintf("ssh -nNf -o \"ControlMaster=yes\" -o \"ControlPath=%s\" -p %s %s", server.ControlPath(), server.Port, server.Host())
+		cmd := fmt.Sprintf("ssh -nNf -o \"ControlMaster=yes\" -o \"ControlPath=%s\" -p %s %s", server.Socket(), server.Port, server.Host())
 		runCmdReturningNothing(exec.Command("sh", "-c", cmd))
 		controlMasterStarted <- server
 	}
@@ -111,7 +111,7 @@ func main() {
 	defer func() {
 		controlMasterStopped := make(chan *Server, len(env.Servers))
 		stopControlMaster := func(server *Server) {
-			cmd := fmt.Sprintf("ssh -O exit -o ControlPath='%s' -p %s %s", server.ControlPath(), server.Port, server.Host())
+			cmd := fmt.Sprintf("ssh -O exit -S '%s' -p %s %s", server.Socket(), server.Port, server.Host())
 			runCmdReturningNothing(exec.Command("sh", "-c", cmd))
 			controlMasterStopped <- server
 		}
@@ -220,7 +220,7 @@ func main() {
 		}
 
 		prepareServer := func(server *Server) {
-			runCmdReturningNothing(exec.Command("ssh", "-p", server.Port, "-o", fmt.Sprintf("ControlPath='%s'", server.ControlPath()), "-l", server.User, server.Ip, buffer.String()))
+			runCmdReturningNothing(exec.Command("ssh", "-p", server.Port, "-S", server.Socket(), "-l", server.User, server.Ip, buffer.String()))
 			serverPrepared <- server
 		}
 		for _, server := range env.Servers {
@@ -243,8 +243,8 @@ func main() {
 		}
 		rsyncAssets := func(server *Server) {
 			if len(conf.AssetBuildCommands) > 0 {
-				cmd := fmt.Sprintf("rsync -e 'ssh -p %s -o ControlPath=\"%s\"' --recursive --times --compress --human-readable public/assets %s:%s/shared",
-					server.Port, server.ControlPath(), server.Host(), env.DeployDir)
+				cmd := fmt.Sprintf("rsync -e 'ssh -p %s -S \"%s\"' --recursive --times --compress --human-readable public/assets %s:%s/shared",
+					server.Port, server.Socket(), server.Host(), env.DeployDir)
 				runCmdReturningNothing(exec.Command("/bin/sh", "-c", cmd))
 			}
 			assetsRsynced <- server
@@ -267,7 +267,7 @@ func main() {
 		uploadCompressedApp := func(server *Server) {
 			if conf.BuiltAppDir != "" {
 				packedFiles := filepath.Join(conf.BuiltAppDir, "*.bz2")
-				cmd := fmt.Sprintf("scp -o ControlPath=\"%s\" %s %s:%s", server.ControlPath(), packedFiles, server.Host(), releaseDir)
+				cmd := fmt.Sprintf("scp -o 'ControlPath=%s' %s %s:%s", server.Socket(), packedFiles, server.Host(), releaseDir)
 				runCmdReturningNothing(exec.Command("/bin/sh", "-c", cmd))
 			}
 			appUploaded <- server
@@ -284,6 +284,7 @@ func main() {
 	finalize.WriteString(fmt.Sprintf("rm -f %s", symlink))
 	finalize.WriteString(fmt.Sprintf(" && ln -s %s %s", releaseDir, symlink))
 
+	// FIXME: unpack before finalization, in case it fails, pbzip2 is not installed etc
 	if conf.BuiltAppDir != "" {
 		cmd := fmt.Sprintf(" && pbzip2 -d %s", filepath.Join(releaseDir, "*.bz2"))
 		finalize.WriteString(cmd)
@@ -298,7 +299,7 @@ func main() {
 	finalizeServer := func(server *Server) {
 		<-appUploaded
 		<-assetsRsynced
-		runCmdReturningNothing(exec.Command("ssh", "-p", server.Port, "-o", fmt.Sprintf("ControlPath='%s'", server.ControlPath()), "-l", server.User, server.Ip, finalize.String()))
+		runCmdReturningNothing(exec.Command("ssh", "-p", server.Port, "-S", fmt.Sprintf("'%s'", server.Socket()), "-l", server.User, server.Ip, finalize.String()))
 		serverFinalized <- server
 	}
 	for _, server := range env.Servers {

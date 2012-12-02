@@ -52,6 +52,6 @@ func (server *Server) Host() string {
 	return fmt.Sprintf("%s@%s", server.User, server.Ip)
 }
 
-func (server *Server) ControlPath() string {
+func (server *Server) Socket() string {
 	return fmt.Sprintf("%s:%s", server.Host(), server.Port)
 }
