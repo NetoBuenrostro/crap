@@ -262,8 +262,7 @@ func main() {
 		uploadCompressedApp := func(server *Server) {
 			if conf.BuiltAppDir != "" {
 				packedFiles := filepath.Join(conf.BuiltAppDir, "*.bz2")
-				cmd := fmt.Sprintf("rsync -e 'ssh -p %s -o ControlPath=\"%s\"' --recursive --times --human-readable %s %s:%s",
-					server.Port, server.ControlPath(), packedFiles, server.Host(), releaseDir)
+				cmd := fmt.Sprintf("scp -o ControlPath=\"%s\" %s %s:%s", server.ControlPath(), packedFiles, server.Host(), releaseDir)
 				runCmd(exec.Command("/bin/sh", "-c", cmd))
 			}
 			appUploaded <- server
