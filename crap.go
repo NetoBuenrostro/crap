@@ -256,7 +256,7 @@ func main() {
 			<-appBuildReady
 		}
 		if conf.BuiltAppDir != "" {
-			cmd := fmt.Sprintf("pbzip2 -f %s", filepath.Join(conf.BuiltAppDir, "*"))
+			cmd := fmt.Sprintf("pbzip2 -9 -f %s", filepath.Join(conf.BuiltAppDir, "*"))
 			runCmd(exec.Command("/bin/sh", "-c", cmd))
 		}
 		uploadCompressedApp := func(server *Server) {
