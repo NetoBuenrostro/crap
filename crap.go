@@ -24,8 +24,6 @@ var (
 )
 
 func main() {
-	start := time.Now()
-
 	flag.Parse()
 
 	if *version {
@@ -294,7 +292,6 @@ func main() {
 		<-appUploaded
 		<-assetsRsynced
 		runCmd(exec.Command("ssh", "-p", server.Port, "-o", fmt.Sprintf("ControlPath='%s'", server.ControlPath()), "-l", server.User, server.Ip, finalize.String()))
-		fmt.Println("*** App deployed to", server.Host(), releaseDir, "in", time.Since(start))
 		serverFinalized <- server
 	}
 	for _, server := range env.Servers {
@@ -303,7 +300,6 @@ func main() {
 	for _ = range env.Servers {
 		<-serverFinalized
 	}
-	fmt.Println("All done.")
 }
 
 func runCmd(cmd *exec.Cmd) []byte {
