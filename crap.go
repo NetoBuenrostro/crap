@@ -228,7 +228,13 @@ func main() {
 		for _ = range conf.AppBuildCommands {
 			<-appBuildReady
 		}
+		cmd := "if [ ! -d out ]; then mkdir -p out; fi"
+		runCmdReturningNothing(exec.Command("/bin/sh", "-c", cmd))
+		cmd = fmt.Sprintf("tar --use-compress-program=pbzip2 -cf out/dist.tar.bz2 %s", conf.BuiltAppDir)
+		runCmdReturningNothing(exec.Command("/bin/sh", "-c", cmd))
 		uploadCompressedApp := func(server *Server) {
+			cmd := fmt.Sprintf("scp -o 'ControlPath=%s' out/dist.tar.bz2 %s:%s/shared/.", server.Socket(), server.Host(), env.DeployDir)
+			runCmdReturningNothing(exec.Command("/bin/sh", "-c", cmd))
 			appUploaded <- server
 		}
 		for _, server := range env.Servers {
@@ -239,8 +245,20 @@ func main() {
 	// If remote commands are finished and assets are synced, replace symlink and restart server
 	var finalize bytes.Buffer
 
+	cmd := fmt.Sprintf("pbzip2 -f --keep -d %s", filepath.Join(env.DeployDir, "shared", "dist.tar.bz2"))
+	finalize.WriteString(cmd)
+
+	cmd = fmt.Sprintf(" && rm -rf %s", filepath.Join(env.DeployDir, "shared", "dist"))
+	finalize.WriteString(cmd)
+
+	cmd = fmt.Sprintf(" && tar xf %s --directory=%s", filepath.Join(env.DeployDir, "shared", "dist.tar"), filepath.Join(env.DeployDir, "shared"))
+	finalize.WriteString(cmd)
+
+	cmd = fmt.Sprintf(" && cp -r %s %s", filepath.Join(env.DeployDir, "shared", "dist", "*"), releaseDir)
+	finalize.WriteString(cmd)
+
 	symlink := filepath.Join(env.DeployDir, "current")
-	finalize.WriteString(fmt.Sprintf("rm -f %s", symlink))
+	finalize.WriteString(fmt.Sprintf(" && rm -f %s", symlink))
 	finalize.WriteString(fmt.Sprintf(" && ln -s %s %s", releaseDir, symlink))
 
 	if len(env.RestartCommand) > 0 {
