@@ -281,20 +281,6 @@ func main() {
 	}
 }
 
-func runCmdReturningOutput(cmd *exec.Cmd) []byte {
-	cmdStart := time.Now()
-	args := strings.Join(cmd.Args, " ")
-	b, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println("Error:", err)
-		fmt.Println("Command:", args)
-		fmt.Println("Output:", string(b))
-		os.Exit(1)
-	}
-	fmt.Println(args, "in", time.Since(cmdStart))
-	return b
-}
-
 func runCmdReturningNothing(cmd *exec.Cmd) {
 	cmdStart := time.Now()
 	args := strings.Join(cmd.Args, " ")
