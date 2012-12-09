@@ -262,7 +262,7 @@ func main() {
 	finalize.WriteString(fmt.Sprintf(" && ln -s %s %s", releaseDir, symlink))
 
 	if len(env.RestartCommand) > 0 {
-		cmd := fmt.Sprintf(" && %s", env.RestartCommand)
+		cmd := fmt.Sprintf(" && (%s)", env.RestartCommand)
 		finalize.WriteString(cmd)
 	}
 
