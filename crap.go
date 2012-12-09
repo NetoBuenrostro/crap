@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/koyachi/go-term-ansicolor/ansicolor"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -280,9 +281,8 @@ func runCmdReturningNothing(cmd *exec.Cmd) {
 	cmdStart := time.Now()
 	args := strings.Join(cmd.Args, " ")
 	if err := cmd.Run(); err != nil {
-		fmt.Println("Error:", err)
-		fmt.Println("Command:", args)
+		fmt.Println(ansicolor.Red(args), ansicolor.Bold(err.Error()))
 		os.Exit(1)
 	}
-	fmt.Println(args, "in", time.Since(cmdStart))
+	fmt.Println(ansicolor.Green(args), ansicolor.Bold(time.Since(cmdStart).String()))
 }
