@@ -138,21 +138,6 @@ func main() {
 	appBuildReady := buildAll(conf.AppBuildCommands)
 	assetBuildReady := buildAll(conf.AssetBuildCommands)
 
-	// Collect local git repo info
-	repoAddress := ""
-	deployBranch := ""
-	if conf.BuiltAppDir == "" {
-		b = runCmdReturningOutput(exec.Command("git", "config", "--get", "remote.origin.url"))
-		repoAddress = strings.Split(string(b), "\n")[0]
-		b = runCmdReturningOutput(exec.Command("git", "branch"))
-		for _, branch := range strings.Split(string(b), "\n") {
-			s := strings.TrimSpace(branch)
-			if strings.HasPrefix(s, "* ") {
-				deployBranch = s[2:]
-			}
-		}
-	}
-
 	// Construct release dir
 	releaseBasePath := filepath.Join(env.DeployDir, "releases")
 	releaseDir := filepath.Join(releaseBasePath, time.Now().Format("20060102150405"))
@@ -160,32 +145,14 @@ func main() {
 	// Prepare servers
 	serverPrepared := make(chan *Server, len(env.Servers))
 	go func() {
-		sha1 := ""
-		if conf.BuiltAppDir == "" {
-			b = runCmdReturningOutput(exec.Command("git", "ls-remote", repoAddress, deployBranch))
-			sha1 = strings.Split(string(b), "\t")[0]
-		}
-
 		// Run a bunch of commands on the remote server. Set up shared dir, symlinks etc
 		var buffer bytes.Buffer
 
 		cmd := fmt.Sprintf("if [ ! -d %s/shared/log ]; then mkdir -p %s/shared/log; fi", env.DeployDir, env.DeployDir)
 		buffer.WriteString(cmd)
 
-		if conf.BuiltAppDir == "" {
-			cmd := fmt.Sprintf("&& if [ -d %s/shared/cached-copy ]; then cd %s/shared/cached-copy && git fetch -q origin && git fetch --tags -q origin && git reset -q --hard %s && git clean -q -d -x -f; else git clone -q --depth 1 %s %s/shared/cached-copy && cd %s/shared/cached-copy && git checkout -q -b deploy %s; fi",
-				env.DeployDir, env.DeployDir, sha1, repoAddress, env.DeployDir, env.DeployDir, sha1)
-			buffer.WriteString(cmd)
-		}
-
 		cmd = fmt.Sprintf(" && if [ ! -d %s ]; then mkdir -p %s; fi", releaseDir, releaseDir)
 		buffer.WriteString(cmd)
-
-		if conf.BuiltAppDir == "" {
-			cmd = fmt.Sprintf(" && cp -RPp %s/shared/cached-copy %s && (echo %s > %s/REVISION)",
-				env.DeployDir, releaseDir, sha1, releaseDir)
-			buffer.WriteString(cmd)
-		}
 
 		cmd = fmt.Sprintf(" && chmod -R g+w %s", releaseDir)
 		buffer.WriteString(cmd)
@@ -260,16 +227,7 @@ func main() {
 		for _ = range conf.AppBuildCommands {
 			<-appBuildReady
 		}
-		if conf.BuiltAppDir != "" {
-			cmd := fmt.Sprintf("pbzip2 -9 -f %s", filepath.Join(conf.BuiltAppDir, "*"))
-			runCmdReturningNothing(exec.Command("/bin/sh", "-c", cmd))
-		}
 		uploadCompressedApp := func(server *Server) {
-			if conf.BuiltAppDir != "" {
-				packedFiles := filepath.Join(conf.BuiltAppDir, "*.bz2")
-				cmd := fmt.Sprintf("scp -o 'ControlPath=%s' %s %s:%s", server.Socket(), packedFiles, server.Host(), releaseDir)
-				runCmdReturningNothing(exec.Command("/bin/sh", "-c", cmd))
-			}
 			appUploaded <- server
 		}
 		for _, server := range env.Servers {
@@ -283,12 +241,6 @@ func main() {
 	symlink := filepath.Join(env.DeployDir, "current")
 	finalize.WriteString(fmt.Sprintf("rm -f %s", symlink))
 	finalize.WriteString(fmt.Sprintf(" && ln -s %s %s", releaseDir, symlink))
-
-	// FIXME: unpack before finalization, in case it fails, pbzip2 is not installed etc
-	if conf.BuiltAppDir != "" {
-		cmd := fmt.Sprintf(" && pbzip2 -d %s", filepath.Join(releaseDir, "*.bz2"))
-		finalize.WriteString(cmd)
-	}
 
 	if len(env.RestartCommand) > 0 {
 		cmd := fmt.Sprintf(" && %s", env.RestartCommand)
