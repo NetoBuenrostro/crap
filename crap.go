@@ -139,8 +139,10 @@ func main() {
 	appBuildReady := buildAll(conf.AppBuildCommands)
 	assetBuildReady := buildAll(conf.AssetBuildCommands)
 
-	//Environment specific commands
-	runCmdReturningNothing(exec.Command("sh", "-c", env.EnvironmentCommand))
+	// Environment specific commands
+	if len(env.EnvironmentCommand) > 0 {
+		runCmdReturningNothing(exec.Command("sh", "-c", env.EnvironmentCommand))
+	}
 
 	// Construct release dir
 	releaseBasePath := filepath.Join(env.DeployDir, "releases")
