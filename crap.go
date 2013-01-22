@@ -139,10 +139,6 @@ func main() {
 	appBuildReady := buildAll(conf.AppBuildCommands)
 	assetBuildReady := buildAll(conf.AssetBuildCommands)
 
-	if len(env.AfterDeployCommand) > 0 {
-		runCmdReturningNothing(exec.Command("sh", "-c", env.AfterDeployCommand))
-	}
-
 	// Construct release dir
 	releaseBasePath := filepath.Join(env.DeployDir, "releases")
 	releaseDir := filepath.Join(releaseBasePath, time.Now().Format("20060102150405"))
@@ -282,6 +278,10 @@ func main() {
 	}
 	for _ = range env.Servers {
 		<-serverFinalized
+	}
+
+	if len(env.AfterDeployCommand) > 0 {
+		runCmdReturningNothing(exec.Command("sh", "-c", env.AfterDeployCommand))
 	}
 }
 
