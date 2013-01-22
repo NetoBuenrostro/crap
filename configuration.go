@@ -15,7 +15,7 @@ type (
 		Servers            []Server `json:"servers"`
 		RestartCommand     string   `json:"restart_command"`
 		DeployDir          string   `json:"deploydir"`
-		EnvironmentCommand string   `json:"environment_command"`
+		AfterDeployCommand string   `json:"after_deploy_command"`
 	}
 	Configuration struct {
 		CrapVersion        string        `json:"crap_version"`
@@ -43,7 +43,7 @@ func NewSampleConfiguration() *Configuration {
 					Server{Port: "22", User: "deployment", Ip: "www.myapp.com"}},
 				DeployDir:          "/var/www/myapp",
 				RestartCommand:     "(sudo stop myapp_production || true) && sudo start myapp_production",
-				EnvironmentCommand: "make cleanup"}},
+				AfterDeployCommand: "make cleanup"}},
 		AppBuildCommands:   []string{"make linux64bit"},
 		AssetBuildCommands: []string{"make css_assets_gzip", "make js_assets_gzip"},
 		BuiltAppDir:        "out/myapp",
