@@ -142,7 +142,6 @@ func main() {
 	//Environment specific commands
 	runCmdReturningNothing(exec.Command("sh", "-c", env.EnvironmentCommand))
 
-
 	// Construct release dir
 	releaseBasePath := filepath.Join(env.DeployDir, "releases")
 	releaseDir := filepath.Join(releaseBasePath, time.Now().Format("20060102150405"))
