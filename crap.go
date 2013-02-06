@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/brettbuddin/victor"
 	"github.com/koyachi/go-term-ansicolor/ansicolor"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -25,6 +28,8 @@ var (
 )
 
 func main() {
+	start := time.Now()
+
 	flag.Parse()
 
 	if *version {
@@ -282,6 +287,28 @@ func main() {
 
 	if len(env.AfterDeployCommand) > 0 {
 		runCmdReturningNothing(exec.Command("sh", "-c", env.AfterDeployCommand))
+	}
+
+	if conf.Campfire.Account != "" && conf.Campfire.Token != "" && conf.Campfire.Rooms != "" {
+		if currentUser, err := user.Current(); err != nil {
+			panic(err)
+		} else if pwd, err := os.Getwd(); err != nil {
+			panic(err)
+		} else {
+			rooms := make([]int, 0)
+			for _, s := range strings.Split(conf.Campfire.Rooms, ",") {
+				if id, err := strconv.Atoi(s); err != nil {
+					panic(err)
+				} else {
+					rooms = append(rooms, id)
+				}
+			}
+			r := victor.NewCampfire("victor", conf.Campfire.Account, conf.Campfire.Token, rooms)
+			for _, id := range rooms {
+				r.Client().Room(id).Say(fmt.Sprintf("%s deployed %s to %s in %v",
+					currentUser.Username, filepath.Base(pwd), env.Name, time.Since(start)))
+			}
+		}
 	}
 }
 
