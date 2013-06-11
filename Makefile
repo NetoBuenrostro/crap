@@ -1,10 +1,5 @@
-default: fmt build
-
-fmt:
-	go fmt
-
 build:
-	go build
+	go build && go fmt && go vet
 
 install: build
 	sudo cp crap /usr/bin
