@@ -251,9 +251,13 @@ func createSampleConfig() {
 func parseConfig() *configuration {
 	b, err := ioutil.ReadFile(configurationFile)
 	if err != nil {
-		fmt.Println("Could not open configuration file (crap.json):", err)
-		fmt.Println("Hint: pass --crapify to create a new configuration file")
-		os.Exit(1)
+		// Try config subfolder
+		b, err = ioutil.ReadFile(filepath.Join("config", configurationFile))
+		if err != nil {
+			fmt.Println("Could not open configuration file (crap.json or config/crap.json):", err)
+			fmt.Println("Hint: pass --crapify to create a new configuration file")
+			os.Exit(1)
+		}
 	}
 	var conf configuration
 	if err := json.Unmarshal(b, &conf); err != nil {
