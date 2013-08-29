@@ -17,7 +17,7 @@ type (
 		DeployDir          string   `json:"deploydir"`
 		AfterDeployCommand string   `json:"after_deploy_command"`
 	}
-	campfire struct {
+	campfireAccount struct {
 		Account string `json:"account"`
 		Token   string `json:"token"`
 		Rooms   string `json:"rooms"`
@@ -28,7 +28,7 @@ type (
 		BuiltAppDir        string        `json:"built_app_dir"`
 		AppBuildCommands   []string      `json:"app_build_commands"`
 		AssetBuildCommands []string      `json:"asset_build_commands"`
-		Campfire           campfire
+		Campfire           campfireAccount
 	}
 )
 
@@ -64,7 +64,7 @@ func newSampleConfiguration() *configuration {
 		AppBuildCommands:   []string{"make linux64bit"},
 		AssetBuildCommands: []string{"make css_assets_gzip", "make js_assets_gzip"},
 		BuiltAppDir:        "out/myapp",
-		Campfire: campfire{
+		Campfire: campfireAccount{
 			Account: "mycampfireaccount",
 			Token:   "foobarfoobarfoobar",
 			Rooms:   "8343,234223",

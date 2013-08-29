@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/brettbuddin/victor"
+	"github.com/brettbuddin/campfire"
 	"io/ioutil"
 	"log"
 	"os"
@@ -108,26 +108,48 @@ func main() {
 	log.Println("app deployed to", env.Name, "("+deployDuration.String()+")")
 
 	if conf.Campfire.Account != "" && conf.Campfire.Token != "" && conf.Campfire.Rooms != "" {
-		if currentUser, err := user.Current(); err != nil {
+		err := announceInCampfire(conf.Campfire, env.Name, deployDuration)
+		if err != nil {
 			panic(err)
-		} else if pwd, err := os.Getwd(); err != nil {
-			panic(err)
-		} else {
-			rooms := make([]int, 0)
-			for _, s := range strings.Split(conf.Campfire.Rooms, ",") {
-				if id, err := strconv.Atoi(s); err != nil {
-					panic(err)
-				} else {
-					rooms = append(rooms, id)
-				}
-			}
-			r := victor.NewCampfire("victor", conf.Campfire.Account, conf.Campfire.Token, rooms)
-			for _, id := range rooms {
-				r.Client().Room(id).Say(fmt.Sprintf("%s deployed %s to %s in %v",
-					currentUser.Username, filepath.Base(pwd), env.Name, deployDuration))
-			}
 		}
 	}
+}
+
+func announceInCampfire(account campfireAccount, environmentName string, deployDuration time.Duration) error {
+	currentUser, err := user.Current()
+	if err != nil {
+		return err
+	}
+	pwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	var roomIDs []int
+	for _, s := range strings.Split(account.Rooms, ",") {
+		id, err := strconv.Atoi(s)
+		if err != nil {
+			return err
+		}
+		roomIDs = append(roomIDs, id)
+	}
+	client := campfire.NewClient(account.Account, account.Token)
+	rooms, err := client.Rooms()
+	if err != nil {
+		return err
+	}
+	roomMap := make(map[int]*campfire.Room)
+	for _, room := range rooms {
+		roomMap[room.Id] = room
+	}
+	for _, id := range roomIDs {
+		room, found := roomMap[id]
+		if !found {
+			return fmt.Errorf("Room %d not found", id)
+		}
+		room.SendText(fmt.Sprintf("%s deployed %s to %s in %v",
+			currentUser.Username, filepath.Base(pwd), environmentName, deployDuration))
+	}
+	return nil
 }
 
 func run(label string, cmd *exec.Cmd) {
