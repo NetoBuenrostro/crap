@@ -9,3 +9,6 @@ lint:
 
 uninstall:
 	if [ -e "/usr/bin/crap" ]; then sudo rm /usr/bin/crap; fi
+
+clean:
+	rm -rf pkg
