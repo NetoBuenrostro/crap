@@ -13,6 +13,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +29,9 @@ var (
 	printVersion = flag.Bool("version", false, "print version and exit")
 	verbose      = flag.Bool("verbose", false, "verbose logging")
 )
+
+const releaseNameFormat = "20060102150405"
+const numberOfOldReleasesToKeep = 10
 
 func main() {
 	deployStart := time.Now()
@@ -69,7 +73,8 @@ func main() {
 	assetBuildReady := build(conf.AssetBuildCommands)
 
 	releaseBasePath := filepath.Join(env.DeployDir, "releases")
-	releaseDir := filepath.Join(releaseBasePath, time.Now().Format("20060102150405"))
+	latestReleaseName := time.Now().Format(releaseNameFormat)
+	releaseDir := filepath.Join(releaseBasePath, latestReleaseName)
 
 	serverPrepared := server.prepareServer(env, releaseDir, len(conf.AssetBuildCommands) > 0)
 
@@ -113,6 +118,61 @@ func main() {
 			panic(err)
 		}
 	}
+
+	if err := server.cleanupOldReleases(releaseBasePath, latestReleaseName); err != nil {
+		panic(err)
+	}
+}
+
+func (s *server) cleanupOldReleases(releaseBasePath, latestReleaseName string) error {
+	log.Println("Cleaning up old releases")
+	ls := fmt.Sprintf("ls -1 %s", releaseBasePath)
+	b, err := exec.Command("ssh", "-p", s.Port, "-S", s.Socket(), "-l", s.User, s.IP, ls).Output()
+	if err != nil {
+		return err
+	}
+	// parse items
+	items := make([]string, 0)
+	for _, item := range strings.Split(string(b), "\n") {
+		if item != "" {
+			items = append(items, item)
+		}
+	}
+
+	// check that all confirm to release format (parse as int, have specific length)
+	for _, item := range items {
+		if len(item) != len(releaseNameFormat) {
+			return fmt.Errorf("unexpected release name format: %s, was expecting %s", item, releaseNameFormat)
+		}
+		if _, err := strconv.ParseInt(item, 10, 64); err != nil {
+			return err
+		}
+	}
+
+	// sort items in increasing order
+	sort.Strings(items)
+
+	// Sanity check: the latest release should now be on bottom of the list
+	if items[len(items)-1] != latestReleaseName {
+		return fmt.Errorf("latest release '%s' was not found on bottom of release list", latestReleaseName)
+	}
+
+	if numberOfOldReleasesToKeep >= len(items) {
+		return nil // nothing to remove
+	}
+
+	old := items[:len(items)-numberOfOldReleasesToKeep]
+	cmds := make([]string, 0)
+	for _, oldItem := range old {
+		cmds = append(cmds, fmt.Sprintf("rm -rf %s/%s", releaseBasePath, oldItem))
+	}
+	rm := strings.Join(cmds, " && ")
+	log.Println(rm)
+	if err := exec.Command("ssh", "-p", s.Port, "-S", s.Socket(), "-l", s.User, s.IP, rm).Run(); err != nil {
+		return err
+	}
+	log.Println(len(old), "old release(s) removed from server")
+	return nil
 }
 
 func announceInCampfire(account campfireAccount, environmentName string, deployDuration time.Duration) error {
@@ -144,7 +204,7 @@ func announceInCampfire(account campfireAccount, environmentName string, deployD
 	for _, id := range roomIDs {
 		room, found := roomMap[id]
 		if !found {
-			return fmt.Errorf("Room %d not found", id)
+			return fmt.Errorf("room %d not found", id)
 		}
 		room.SendText(fmt.Sprintf("%s deployed %s to %s in %v",
 			currentUser.Username, filepath.Base(pwd), environmentName, deployDuration))
@@ -158,7 +218,8 @@ func run(label string, cmd *exec.Cmd) {
 		args := strings.Join(cmd.Args, " ")
 		log.Println(label, "args:", args)
 	}
-	if err := cmd.Run(); err != nil {
+	err := cmd.Run()
+	if err != nil {
 		args := strings.Join(cmd.Args, " ")
 		log.Println("Error!", label, args, err.Error())
 		os.Exit(1)
