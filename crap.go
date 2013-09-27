@@ -21,7 +21,7 @@ import (
 
 const (
 	configurationFile = "crap.json"
-	version           = "0.9"
+	version           = "1.0"
 )
 
 var (
