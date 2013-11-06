@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -21,7 +20,7 @@ import (
 
 const (
 	configurationFile = "crap.json"
-	version           = "1.0"
+	version           = "1.1"
 )
 
 var (
@@ -176,10 +175,11 @@ func (s *server) cleanupOldReleases(releaseBasePath, latestReleaseName string) e
 }
 
 func announceInCampfire(account campfireAccount, environmentName string, deployDuration time.Duration) error {
-	currentUser, err := user.Current()
+	b, err := exec.Command("sh", "-c", "whoami").CombinedOutput()
 	if err != nil {
 		return err
 	}
+	username := string(b)
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -207,7 +207,7 @@ func announceInCampfire(account campfireAccount, environmentName string, deployD
 			return fmt.Errorf("room %d not found", id)
 		}
 		room.SendText(fmt.Sprintf("%s deployed %s to %s in %v",
-			currentUser.Username, filepath.Base(pwd), environmentName, deployDuration))
+			username, filepath.Base(pwd), environmentName, deployDuration))
 	}
 	return nil
 }
