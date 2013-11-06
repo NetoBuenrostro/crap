@@ -349,9 +349,21 @@ func parseConfig() *configuration {
 	return &conf
 }
 
+func (conf configuration) defaultEnvironment() *environment {
+	for _, e := range conf.Environments {
+		if e.Default {
+			return &e
+		}
+	}
+	return nil
+}
+
 func (conf *configuration) selectEnvironment() *environment {
 	args := flag.Args()
 	if len(args) == 0 {
+		if d := conf.defaultEnvironment(); d != nil {
+			return d
+		}
 		fmt.Println("Specify an environment")
 		os.Exit(1)
 	}

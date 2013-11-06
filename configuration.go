@@ -16,6 +16,7 @@ type (
 		RestartCommand     string   `json:"restart_command"`
 		DeployDir          string   `json:"deploydir"`
 		AfterDeployCommand string   `json:"after_deploy_command"`
+		Default            bool     `json:"default"`
 	}
 	campfireAccount struct {
 		Account string `json:"account"`
