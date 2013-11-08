@@ -179,7 +179,7 @@ func announceInCampfire(account campfireAccount, environmentName string, deployD
 	if err != nil {
 		return err
 	}
-	username := string(b)
+	username := strings.Trim(string(b), "\r\n")
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
