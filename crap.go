@@ -401,8 +401,12 @@ func (conf *configuration) validate() {
 		fmt.Println("Your crap.json file is unversioned - please add crap_version to your crap.json")
 		os.Exit(1)
 	}
-	if conf.CrapVersion != version {
+	if conf.CrapVersion > version {
 		fmt.Println("Your crap.json requires crap", conf.CrapVersion, "but this crap is", version, "- please upgrade!")
+		os.Exit(1)
+	}
+	if conf.CrapVersion < version {
+		fmt.Println("Whoaa you've got crap", version, ", but version in crap.json is", conf.CrapVersion, "- Upgrade version number in crap.json!")
 		os.Exit(1)
 	}
 }
