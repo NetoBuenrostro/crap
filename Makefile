@@ -1,5 +1,7 @@
+export GOPATH=$(shell pwd)
+
 build:
-	go build && go fmt && go vet
+	go build && go fmt
 
 install: build
 	sudo cp crap /usr/bin
