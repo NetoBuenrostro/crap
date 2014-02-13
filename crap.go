@@ -213,10 +213,6 @@ func announceInCampfire(account campfireAccount, environmentName string, deployD
 }
 
 func run(label string, cmd *exec.Cmd) {
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
 	cmdStart := time.Now()
 	if *verbose {
 		args := strings.Join(cmd.Args, " ")
@@ -225,7 +221,7 @@ func run(label string, cmd *exec.Cmd) {
 	err := cmd.Run()
 	if err != nil {
 		args := strings.Join(cmd.Args, " ")
-		log.Println("Error!", label, args, err.Error(), stderr.String(), out.String())
+		log.Println("Error!", label, args, err.Error())
 		os.Exit(1)
 	}
 	since := time.Since(cmdStart)
