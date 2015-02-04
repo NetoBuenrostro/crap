@@ -123,7 +123,7 @@ func (s *server) cleanupOldReleases(releaseBasePath, latestReleaseName string) e
 		return err
 	}
 	// parse items
-	items := make([]string, 0)
+	var items []string
 	for _, item := range strings.Split(string(b), "\n") {
 		if item != "" {
 			items = append(items, item)
@@ -153,7 +153,7 @@ func (s *server) cleanupOldReleases(releaseBasePath, latestReleaseName string) e
 	}
 
 	old := items[:len(items)-numberOfOldReleasesToKeep]
-	cmds := make([]string, 0)
+	var cmds []string
 	for _, oldItem := range old {
 		cmds = append(cmds, fmt.Sprintf("rm -rf %s/%s", releaseBasePath, oldItem))
 	}
