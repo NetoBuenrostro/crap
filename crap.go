@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/brettbuddin/campfire"
 	"io/ioutil"
 	"log"
 	"os"
@@ -111,13 +110,6 @@ func main() {
 	deployDuration := time.Since(deployStart)
 	log.Println("app deployed to", env.Name, "("+deployDuration.String()+")")
 
-	if conf.Campfire.Account != "" && conf.Campfire.Token != "" && conf.Campfire.Rooms != "" {
-		err := announceInCampfire(conf.Campfire, env.Name, deployDuration)
-		if err != nil {
-			panic(err)
-		}
-	}
-
 	if err := server.cleanupOldReleases(releaseBasePath, latestReleaseName); err != nil {
 		panic(err)
 	}
@@ -171,44 +163,6 @@ func (s *server) cleanupOldReleases(releaseBasePath, latestReleaseName string) e
 		return err
 	}
 	log.Println(len(old), "old release(s) removed from server")
-	return nil
-}
-
-func announceInCampfire(account campfireAccount, environmentName string, deployDuration time.Duration) error {
-	b, err := exec.Command("sh", "-c", "whoami").CombinedOutput()
-	if err != nil {
-		return err
-	}
-	username := strings.Trim(string(b), "\r\n")
-	pwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	var roomIDs []int
-	for _, s := range strings.Split(account.Rooms, ",") {
-		id, err := strconv.Atoi(s)
-		if err != nil {
-			return err
-		}
-		roomIDs = append(roomIDs, id)
-	}
-	client := campfire.NewClient(account.Account, account.Token)
-	rooms, err := client.Rooms()
-	if err != nil {
-		return err
-	}
-	roomMap := make(map[int]*campfire.Room)
-	for _, room := range rooms {
-		roomMap[room.Id] = room
-	}
-	for _, id := range roomIDs {
-		room, found := roomMap[id]
-		if !found {
-			return fmt.Errorf("room %d not found", id)
-		}
-		room.SendText(fmt.Sprintf("%s deployed %s to %s in %v",
-			username, filepath.Base(pwd), environmentName, deployDuration))
-	}
 	return nil
 }
 
