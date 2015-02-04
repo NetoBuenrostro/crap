@@ -53,7 +53,7 @@ func newSampleConfiguration() *configuration {
 				},
 				DeployDir:          "/var/www/myapp",
 				RestartCommand:     "(sudo stop myapp_production || true) && sudo start myapp_production",
-				AfterDeployCommand: "make cleanup",
+				AfterDeployCommand: "make clean",
 			},
 		},
 		AppBuildCommands:   []string{"make linux64bit"},
