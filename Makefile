@@ -1,8 +1,8 @@
-build:
-	go build && go fmt
+build: lint fmt
+	go build
+
+fmt:
+	go fmt
 
 lint:
 	golint *.go
-
-clean:
-	rm -rf pkg
