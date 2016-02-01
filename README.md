@@ -11,8 +11,8 @@ Clone the repo, then in the root of crap project run install command.
 Command builds the go binary and copies it to /usr/bin
 
 ## How to use
-- Go to your project root and run 'crap --crapify'
-- This generates sample crap configuration file called `crap.json` (see this file for config file details [config.md](config.md) )
+- Go to your project root and run `crap --crapify`
+- This generates sample Crap configuration file called `crap.json` (see this file for config file details [config.md](config.md) )
 - Edit the config file to match your configuration
 - Run `crap staging` to deploy to staging
 - Run `crap production` to deploy to staging
