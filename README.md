@@ -20,12 +20,12 @@ Command builds the go binary and copies it to /usr/bin
 ### Command line arguments
 ```
 --crapify   Generates sample crap config file
---verbose   Enable verbose logging
---version   Print Crap version and exit
+--verbose   Enables verbose logging
+--version   Prints Crap version and exits
 ```
 
 ## Uninstall
 
-In the root of crap project run install command.
+In the root of crap project run uninstall command.
 
 `make uninstall`
