@@ -58,9 +58,9 @@ This is how the sample config file looks like. We'll go through this step by ste
   - `name` - name of the environment (this is the same name that should be used when executing crap)
   - **`servers`**
 (_Array of servers that will be deployed to_)
-    - `port` - Port of the server connection
-    - `user` - User name that is used to connect to the server
-    - `ip` - IP address of the server
+      - `port` - Port of the server connection
+      - `user` - User name that is used to connect to the server
+      - `ip` - IP address of the server
   - `restart_command` - Command that is executed on the server after deploy to restart the service
   - `deploydir` - Location of the project on the server
   - `after_deploy_command` - Additional deploy command to clean up or something else that is executed after deploy
