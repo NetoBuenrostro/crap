@@ -6,9 +6,7 @@ A deployment tool similar to Capistrano, but simplerer
 ## Install
 Clone the repo, then in the root of crap project run install command.
 
-```
-make install
-```
+`make install`
 
 Command builds the go binary and copies it to /usr/bin
 
@@ -24,11 +22,10 @@ Command builds the go binary and copies it to /usr/bin
 --crapify   Generates sample crap config file
 --verbose   Enable verbose logging
 --version   Print Crap version and exit
+```
 
 ## Uninstall
 
 In the root of crap project run install command.
 
-```
-make uninstall
-```
+`make uninstall`
