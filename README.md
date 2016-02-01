@@ -1,5 +1,4 @@
 # Crap
-====
 
 A deployment tool similar to Capistrano, but simplerer
 
