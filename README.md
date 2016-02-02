@@ -7,7 +7,7 @@ Clone the repo, then in the root of crap project run install command.
 
 `make install`
 
-Command builds the go binary and copies it to /usr/bin
+Command builds the go binary and copies it to `/usr/local/bin`
 
 ## How to use
 - Go to your project root and run `crap --crapify`
