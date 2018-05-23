@@ -71,7 +71,7 @@ func main() {
 	assetBuildReady := build(conf.AssetBuildCommands)
 
 	releaseBasePath := filepath.Join(env.DeployDir, "releases")
-	latestReleaseName := time.Now().Format(releaseNameFormat)
+	latestReleaseName := time.Now().UTC().Format(releaseNameFormat)
 	releaseDir := filepath.Join(releaseBasePath, latestReleaseName)
 
 	serverPrepared := server.prepareServer(env, releaseDir, len(conf.AssetBuildCommands) > 0)
