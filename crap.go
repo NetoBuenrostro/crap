@@ -197,8 +197,8 @@ func (s *server) finalizeApp(env *environment, releaseDir string) chan bool {
 	go func() {
 		var finalize bytes.Buffer
 
-		// Copy app files into release dir
-		cmd := fmt.Sprintf("cp -r %s %s", filepath.Join(env.DeployDir, "shared", "dist", "*"), releaseDir)
+		// Copy app files into release dir, use /. to include hidden files
+		cmd := fmt.Sprintf("cp -r %s/. %s", filepath.Join(env.DeployDir, "shared", "dist"), releaseDir)
 		finalize.WriteString(cmd)
 
 		// Replace symlink
